@@ -1,0 +1,298 @@
+---
+title: "Final Project"
+author: "Julia Shmookler"
+date: "11/15/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(spotifyr)
+library(jsonlite)
+library(MASS)
+```
+
+```{r}
+streaming<- read_json("StreamingHistory0.json")
+streaming<- bind_rows(streaming)
+
+Sys.setenv(SPOTIFY_CLIENT_ID = 'c6ad671c151749848b8b51c402548220')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = 'edbdb343428848ad976727db352dd636')
+
+access_token <- get_spotify_access_token()
+
+search_spotify("Boyscott Nova Scotia 500")$tracks$items$id
+  str()
+  
+search_spotify("Nova Scotia 500", type = "track") %>% 
+  unlist()
+
+get_track_audio_features("3OrI7MO3lL6F4dUYS5rCkz")
+
+get_track_audio_features("6Tw1ktF4xMmzaLLbe98I2z")
+tracks<- c( "Jump in the Line")
+search_spotify(tracks, type="track")
+
+getArtist<- function(track,artist){
+  search_spotify(track, type="track")%>% 
+  select(artists) %>% 
+  unnest(cols = c(artists)) %>%
+  filter(name==artist) %>% 
+  slice(1) %>% 
+  select(id) %>% 
+  as_vector()
+}   
+getArtist("Jump in the Line","Harry Belafonte")
+ 
+
+get_track_audio_features(search_spotify(streaming %>% select(trackName) %>% head(2) %>% as_vector(),type="track" ))
+
+search_spotify("Yumeliko Flying Mind", type = "track")
+
+
+get_my_saved_tracks()
+
+get_track_audio_features(search_spotify(tracks, type="track")$id)
+
+?spotifyr
+```
+```{r}
+streaming %>% 
+  select(artistName, trackName) %>% 
+  slice(8)
+```
+
+```{r}
+getID<- function(trackA){
+  ifelse(is.character(search_spotify(trackA, type="track")$id),{
+  search_spotify(trackA, type="track")%>%
+  select(id) %>%
+  slice(1) %>% 
+  as_vector()
+  }, NA)
+}
+
+is.character(search_spotify("Yumeliko Flying Mind",type="track")$id)
+
+getID<- function(trackA){
+  search_spotify(trackA, type="track")%>%
+  select(id) %>%
+  slice(1) %>% 
+  as_vector()
+} 
+
+getID("Yumeliko Flying Mind")
+
+getID("Boyscott Nova Scotia 500")
+getID("Aminé SHINE")
+getID("The Isley Brothers Shout, Pts. 1 & 2")
+getID("Tyler, The Creator Where This Flower Blooms (feat. Frank Ocean)")
+
+streamingA<- streaming %>% 
+  #filter(artistName != c("SwuM","Yumeliko")) %>% 
+  mutate(trackA= paste0(artistName, " ", trackName)) %>% 
+  select(trackA)
+
+streamingA$trackA[-184]
+
+streaming %>% 
+  mutate(trackA= paste0(artistName, " ", trackName)) %>% 
+  select(trackA) %>% 
+  slice(1) %>% 
+  getID()
+
+tracksA<-c("Boyscott Nova Scotia 500","Aminé SHINE")
+n=length(streamingA$trackA)
+
+id<-rep(" ",n)
+for(i in 1:n){
+  Thisid=getID(streamingA$trackA[i])
+  ifelse(i==1,
+          {mydf1=data.frame(id=Thisid,get_track_audio_features(Thisid))},
+          {mydf1=bind_rows(mydf1, 
+                         data.frame(id=Thisid,get_track_audio_features(Thisid)))})
+}
+mydf1
+
+is.character(getID(streamingA$trackA[184]))
+
+id<-rep(" ",n)
+for(i in 1:n){
+  Thisid=getID(streamingA$trackA[i])
+  while (is.na(get_track_audio_features(Thisid))) {
+    print(Thisid)}
+}
+mydf2
+
+
+
+saveRDS(mydf1,"FinalData.RDS")
+mydat<-readRDS("FinalData.RDS")
+
+summary(mydat)
+
+get_track("36jDABK9TQixIZOZylPy04")
+
+get_track_audio_features(StreamingIds$ids[1])
+
+ggplot(mydat)+
+  geom_histogram(aes(danceability))
+
+
+k2<-mydat %>% 
+  drop_na(danceability) %>% 
+  select(danceability) %>% 
+  kmeans(centers = 2) 
+k2$cluster
+names(k2)
+
+mydat %>% 
+  drop_na(danceability) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability) %>% select(danceability), centers = 2)$cluster) %>% 
+  ggplot()+
+  geom_dotplot(aes(danceability, color=as.character(k2)))
+
+mydat %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability,energy) %>% select(danceability,energy), centers = 2)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2)))
+
+mydat %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability,energy) %>% select(danceability,energy), centers = 4)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2)))
+  
+  
+  
+```
+
+```{r}
+streamingK<- read_json("StreamingHistoryKeara.json")
+streamingK<- bind_rows(streaming)
+
+
+getID<- function(trackA){
+  ifelse(is.character(search_spotify(trackA, type="track")$id),{
+  search_spotify(trackA, type="track")%>%
+  select(id) %>%
+  slice(1) %>% 
+  as_vector()
+  }, NA)
+}
+
+streamingKC<- streamingK %>% 
+  mutate(trackA= paste0(artistName, " ", trackName)) %>% 
+  select(trackA)
+
+n=length(streamingKC$trackA)
+
+id<-rep(" ",n)
+for(i in 1:n){
+  Thisid=getID(streamingKC$trackA[i])
+  ifelse(i==1,
+          {Kdf1=data.frame(id=Thisid,get_track_audio_features(Thisid))},
+          {Kdf1=bind_rows(Kdf1, 
+                         data.frame(id=Thisid,get_track_audio_features(Thisid)))})
+}
+Kdf1
+
+saveRDS(Kdf1,"FinalDataKC.RDS")
+mydatkc<-readRDS("FinalDataKC.RDS")
+summary(mydatkc)
+```
+```{r}
+streamingMaya<- read_json("StreamingHistoryMaya.json")
+streamingMaya<- bind_rows(streaming)
+```
+
+```{r}
+newDataKC<- bind_rows("Julia"=mydat,"Keara"=mydatkc, .id = "who") %>% 
+  drop_na(danceability)
+
+
+```
+```{r}
+newDataKC %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(newDataKC %>% drop_na(danceability,energy) %>% select(danceability,energy), centers = 4)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2), shape=who))
+
+model1<- lda(who~danceability+energy, data=newDataKC)
+model1
+names(model1)
+predict(model1)$posterior
+summary(model1)
+
+newDataKC %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(p2=predict(model1)$class) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=p2))+
+  facet_grid(~who)
+
+```
+
+```{r}
+
+modelall<- lda(who~., data=newDataKC %>% dplyr::select(danceability:tempo,who))
+modelall
+predict(modelall)$posterior %>% dim()
+
+newDataKC %>% count(danceability)
+
+newDataKC %>% 
+  mutate(whoPredict=predict(modelall)$class) %>% 
+  ggplot()+
+  geom_density(aes(danceability, color=whoPredict))+
+  facet_grid(~who)
+```
+
+```{r}
+newDataKC %>% 
+  mutate(whoPredict=predict(modelall)$class) %>%
+  dplyr::select(who,whoPredict,danceability:tempo) %>% 
+  pivot_longer(danceability:tempo, names_to = "varName", values_to = "value", names_repair = "minimal") %>% 
+  ggplot()+
+  geom_density(aes(value, color=whoPredict))+
+  facet_grid(varName~who, scales="free")
+  
+?vctrs::vec_as_names
+```
+```{r}
+streamingM<- read_json("StreamingHistoryMaya.json")
+streamingM<- bind_rows(streamingM)
+
+getID<- function(trackA){
+  ifelse(is.character(search_spotify(trackA, type="track")$id),{
+  search_spotify(trackA, type="track")%>%
+  select(id) %>%
+  slice(1) %>% 
+  as_vector()
+  }, NA)
+}
+
+streamingMA<- streamingM %>% 
+  mutate(trackA= paste0(artistName, " ", trackName)) %>% 
+  select(trackA)
+
+n=length(streamingMA$trackA)
+
+id<-rep(" ",n)
+for(i in 1:3){
+  Thisid=getID(streamingMA$trackA[i])
+  ifelse(i==1,
+          {Mdf1=data.frame(id=Thisid,get_track_audio_features(Thisid))},
+          {Mdf1=bind_rows(Mdf1, 
+                         data.frame(id=Thisid,get_track_audio_features(Thisid)))})
+}
+Mdf1
+
+saveRDS(Mdf1,"FinalDataMA.RDS")
+mydatMA<-readRDS("FinalDataMA.RDS")
+summary(mydatMA)
+```
+
