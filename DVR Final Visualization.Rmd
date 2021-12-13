@@ -1,6 +1,6 @@
 ---
 title: "DVR"
-author: "Bilge Deniz Kocak"
+author: "Bilge Deniz Kocak, Julia Shmookler, Jack Meriecki"
 date: "10/22/2021"
 output: word_document
 editor_options: 
