@@ -17,8 +17,8 @@ library(MASS)
 streaming<- read_json("StreamingHistory0.json")
 streaming<- bind_rows(streaming)
 
-Sys.setenv(SPOTIFY_CLIENT_ID = 'c6ad671c151749848b8b51c402548220')
-Sys.setenv(SPOTIFY_CLIENT_SECRET = 'edbdb343428848ad976727db352dd636')
+Sys.setenv(SPOTIFY_CLIENT_ID = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
 
 access_token <- get_spotify_access_token()
 
