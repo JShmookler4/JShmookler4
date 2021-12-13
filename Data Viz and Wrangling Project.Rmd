@@ -1,0 +1,353 @@
+---
+title: "Data Viz and Wrangling"
+author: "Julia Shmookler"
+date: "11/14/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(lubridate)
+library(rvest)
+library(stringr)
+```
+1.
+```{r}
+WashPost <- "https://raw.githubusercontent.com/washingtonpost/data-police-shootings/master/fatal-police-shootings-data.csv"
+
+WashPost_file<- "/Users/juliashmookler/Documents/DataScience/WashPost.csv"
+download.file(WashPost,WashPost_file)
+
+WashPost <- read_csv("WashPost.csv")
+
+WashPost1<- WashPost[-c(1,4,12,15:17)]
+
+sapply(WashPost1,function(x) sum(is.na(x)))
+
+```
+I looked at the data to see how many missing values each variable had. Race had the largest amount of missing values followed by flee and then age. 
+##Date
+a.
+```{r}
+ggplot(WashPost1)+
+  geom_histogram(aes(date), binwidth= 250, color="white")+
+  labs(title = "Distribution of Fatal Police Shootings by Date", x= "Date", y="Count")
+```
+The distribution is generally evenly distributed but there appears to be small peaks around 2016,2018,and 2020. There is also a small bar near 2022 since data for later years has not been gathered yet. There were no missing values for date. 
+
+##Age
+```{r}
+ggplot(WashPost1)+
+  geom_histogram(aes(age), color="white")+
+  labs(title = "Age Distribution of Victims from Fatal Police Shootings", x = "Age", y = "Count")
+```
+The distribution appears to be right skewed and unimodal. Most of the ages are within 25 and 40. There could be a possible outlier where the age is young. 326 values were removed from the histogram due to missingness. 
+
+##Gender
+```{r}
+ggplot(WashPost1,aes(gender))+
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=-0.3)+ 
+  labs(title = "Gender of Victims from Fatal Police Shootings", x = "Gender", y = "Count")
+```
+The majority of the victims were male. There were some female victims and also 5 victims with a gender of NA. 
+##Race
+```{r}
+ggplot(WashPost1)+
+  geom_bar(aes(race))+
+  labs(title = "Fatal Police Shootings in the U.S. by Race", x = "Race", y = "Count")
+```
+In this basic bar graph it is very evident that the majority of victims were white, followed by black and then hispanic. There were also a large amount of missing values. 
+
+##State
+```{r}
+ggplot(WashPost1)+
+  geom_bar(aes(state))+
+  labs(title = "Fatal Police Shootings By State", x="State", y="Count")
+
+WashPost1 %>% 
+  group_by(state) %>% 
+  summarise(n=n())%>% 
+  arrange(desc(n)) %>% 
+  slice(1:5, 46:51) %>% 
+  ggplot()+
+    geom_col(aes(reorder(state, desc(n)),n))+
+    labs(title = "Fatal Police Shootings By State", subtitle = "Top 5 and Bottom 5", x="State", y="Count")
+```
+It would be nice to see the values for all the states but the labels are messy. I looked at the top 5 and bottom 5 states based on number of fatal police shootings. California had the most shootings and RI had the least.There were no missing values for state.  
+
+##City
+```{r}
+ggplot(WashPost1)+
+  geom_bar(aes(city))
+
+WashPost1 %>% 
+  group_by(city) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n)) %>% 
+  slice(1:10) %>% 
+  ggplot()+
+    geom_col(aes(reorder(city, desc(n)),n))+
+    labs(title = "Top 10 Cities With The Most Fatal Police Shootings In The US", x="State", y="Count")
+```
+There were too many cities listed so I looked at the top 10 cities with the most shootings. Los Angeles had the most shootings followed by other big cities. There were no missing values for city. 
+##Body Camera
+```{r}
+ggplot(WashPost1)+
+  geom_bar(aes(body_camera))+
+  labs(title = "Body Camera Presence in Fatal Police Shootings in the US", x = "Body Camera", y = "Count")
+```
+A body camera was not present in the majority of fatal police shootings. There were no missing values for body camera. 
+b.
+```{r}
+WashPost1 %>% 
+  summarise(day=wday(date, label=T)) %>% 
+  ggplot()+
+    geom_bar(aes(day))+
+    labs(title = "Number of Fatal Police Shootings by Day of the Week" , x = "Weekday", y = "Count")
+
+WashPost1 %>% 
+  summarise(Year=year(date)) %>% 
+  ggplot()+
+  geom_bar(aes(Year))+
+  labs(title = "Number of Fatal Police Shootings by Year" , x = "Year", y = "Count")
+```
+The distribution for weekday seems to be evenly distributed. There is not a certain day that drastically has more shootings. 
+
+The distribution for year also seems approximately evenly distributed. There is not a certain year that drastically had more shootings. 
+c.
+```{r}
+WashPost1 %>% 
+  mutate(bodycam= if_else(body_camera=="TRUE","Yes", "No" )) %>% 
+  ggplot(aes(bodycam))+
+  geom_bar()+
+  labs(title = "Body Camera Presence in Fatal Police Shootings in the US", x = "Body Camera", y = "Count")+
+  geom_text(stat='count', aes(label=..count..), vjust=-0.3)
+```
+see part a above
+d.
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>% 
+  ggplot()+
+  geom_bar(aes(Race))+
+  labs(title = "Fatal Police Shootings in the U.S. by Race", x = "Race", y = "Count")
+```
+Narrowing down the races the same analysis in part a stands. 
+e.
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>%
+  group_by(Race) %>% 
+  summarise(n=n()) %>% 
+  ggplot()+
+  geom_col(aes(reorder(Race, desc(n)),n))+
+  geom_text(aes(Race,n,label=n),vjust=-0.3)+
+  labs(title = "Fatal Police Shootings in the U.S. by Race", x = "Race", y = "Count")
+```
+The values listed show the amount of fatal police shootings by race. There are 879 NA values. 
+2.
+a.
+i.
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>% 
+  mutate(total=sum(body_camera)) %>% 
+  group_by(Race) %>% 
+  summarise(bodycam=sum(body_camera), percent= bodycam/total) %>% 
+  distinct(Race,percent) %>% 
+  ggplot()+
+  geom_col(aes(Race,percent))+
+  labs(title = "Percent of Times a Body Camera Was Used Across Races", x = "Race", y = "Percent use of Body Camera")
+```
+A body camera was used similarly for Black and White Victims. 
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>% 
+  ggplot(aes(age))+
+  geom_histogram()+
+  facet_wrap(.~Race)+
+  labs(title = "Age Distribution of Fatal Police Shootings Across Racial Groups", x = "Age", y = "Count")
+```
+The distributions for Black and Hispanic victims peaked at a younger age than white victims.There were more older victims that were white. 
+iii.
+```{r}
+WashPost1 %>% 
+   mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>%  
+  summarise(year=year(date),Race) %>% 
+  group_by(Race, year) %>% 
+  summarise(n=n()) %>% 
+  ggplot()+
+  geom_line(aes(year,n, color=Race))+
+  labs(title = "Distribution of Race Over Time By Year", x = "Year", y = "Count")
+```
+Over time white victims consistently had the largest amount of victims followed by black and then hispanic. There is a dip down after 2020 due to lack of recent data. White victims had a low point around 2019 then rose again in 2020. Black victims increased slightly around 2019. Mostly there was not much drastic change over the years by race. 
+b.
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>% 
+  mutate(total=sum(body_camera)) %>% 
+  group_by(Race,gender) %>% 
+  summarise(bodycam=sum(body_camera), percent= bodycam/total) %>% 
+  ggplot()+
+  geom_col(aes(Race,percent, fill=gender), position = "dodge")+
+  labs(title = "Percent of Times a Body Camera Was Used Across Races by Gender", x = "Race", y = "Percent use of Body Camera", fill="Gender")
+```
+A body camera was used much less for females than males however this may be do to significantly less female victims. White females had the largest body camera presence. 
+c.
+```{r}
+WashPost1 %>% 
+  mutate(Race=if_else(race%in%c("W","B","H",NA), race, "Other" )) %>% 
+  mutate(Race=recode(Race, W="White", B="Black", H="Hispanic")) %>% 
+  drop_na(flee) %>% 
+  group_by(Race,signs_of_mental_illness) %>% 
+  summarise(percentFlee=sum(flee!="Not fleeing")/n()) %>% 
+  ggplot(aes(Race,percentFlee))+
+    geom_col(aes(fill=signs_of_mental_illness), position="dodge")+
+    scale_fill_discrete(name="Signs of Mental Illness",labels=c("No", "Yes"))+
+    labs(title= "Percent of Fleeing Across Races by Signs of Mental Illness", x="Race", y="Percent Fleeing", fill="Signs of Mental Illness")
+
+```
+I decided to look at the variables race, flee, and signs of mental illness. I was interested to see if signs of mental illness was connected to fleeing since the victim may not have been thinking rationally. I also wanted to see if this relationship was different by race. I created a column graph with Race as the x variable and percent fleeing as the y variable. I decided to use percent fleeing to get a numerical value that would be easier to understand. In the visualization I was surprised to find that larger percent fleeing was mostly from individuals who did not have signs of mental illness. Black victims had the largest percent fleeing for both having and not having signs of mental illness. 
+
+3.
+a.
+```{r}
+WashPost1 %>% 
+  group_by(state) %>% 
+  summarise(n=n()) %>%
+  arrange(desc(n)) %>% 
+  slice(1:10)%>% 
+  ggplot()+
+  geom_col(aes(reorder(state,desc(n)), n))+
+  labs(title = "Top 10 States With The Most Fatal Police Shootings In The US", x="State", y="Count")
+  
+```
+I looked at the 10 states with the largest number of shootings. California had a significally larger amount of shootings than any other state. Texas had the second largest and then followed by Florida. OK,NC,OH, and TN had similar amounts. 
+b.
+```{r}
+WashPost1 %>% 
+  group_by(state) %>% 
+  summarise(medianA= median(age, na.rm = T)) %>% 
+  arrange(desc(medianA)) %>% 
+  slice(1:5, 47:51) %>% 
+  ggplot()+
+  geom_col(aes(reorder(state,desc(medianA)), medianA))+ 
+  labs(title = "Top 5 And Bottom 5 Median Age of Fatal Police Shooting Victim by State", x="State", y="Median Age")
+```
+The median age of the victim was closer to 40 for the top 5 states and the median age was closer to 30 for the bottom 5 states. West Virginia had the largest median age of victim. Delaware and Rhode Island had the smallest median age of victim. 
+c.
+```{r}
+WashPost1 %>% 
+  group_by(state) %>% 
+  drop_na(race) %>% 
+  summarise(propW= sum(race=="W")/n()) %>% 
+  arrange(desc(propW)) %>% 
+  slice(1:5, 47:51) %>% 
+  ggplot()+
+  geom_col(aes(reorder(state,desc(propW)), propW))+
+  labs(title = "Proportion Of Victims That Were White By State", x="State", y="Proportion White")
+```
+New Hampshire had the largest proportion of victims who were white by state while Hawaii had the smallest. 100% of victims were white in New Hampshire.
+d.
+```{r}
+WashPost1 %>% 
+  drop_na(flee) %>% 
+  group_by(state) %>% 
+  summarise(propF=sum(flee!="Not fleeing")/n()) %>% 
+  arrange(desc(propF)) %>% 
+  slice(1:5, 46:51) %>% 
+  ggplot()+
+  geom_col(aes(reorder(state,desc(propF)), propF))+
+  labs(title = "Proportion Of Victims That Were Fleeing By State", x="State", y="Proportion Fleeing")
+```
+Rhode Island had the largest proportion of victims that were fleeing(100%). New Hampshire had the smallest proportion of victims that were fleeing. 
+e.
+```{r}
+WashPost1 %>% 
+  group_by(state) %>% 
+  drop_na(race, flee) %>% 
+  summarise(propW= sum(race=="W")/n(), propF=sum(flee!="Not fleeing")/n()) %>% 
+  ggplot(aes(propW,propF,label=state))+
+  geom_point()+
+  geom_smooth()+
+  geom_text(data=. %>% filter(propF==1), vjust=1.5)+
+  labs(title = "Proportion of Victims Who Were White vs. Proportion Of Victims Who Were Fleeing",subtitle = "By State", x="Proportion White", y="Proportion Fleeing")
+```
+Rhode Island is a very clear outlier. 
+```{r}
+WashPost1 %>%
+  filter(state!="RI") %>% 
+  group_by(state) %>% 
+  drop_na(race, flee) %>% 
+  summarise(propW= sum(race=="W")/n(), propF=sum(flee!="Not fleeing")/n()) %>% 
+  ggplot(aes(propW,propF,label=state))+
+  geom_point()+
+  geom_smooth()+
+  labs(title = "Proportion of Victims Who Were White vs. Proportion Of Victims Who Were Fleeing",subtitle = "By State(Excluding Rhode Island)", x="Proportion White", y="Proportion Fleeing")
+```
+I think it is an appropriate choice to remove Rhode Island since it does not follow the trend of all the other points and will only skew the data. Any further anlaysis without RI would have to consider that it is removed and proceed with caution. 
+4.
+a.
+```{r}
+pop<- "https://simple.wikipedia.org/wiki/List_of_U.S._states_by_population"
+statePop <-pop %>% 
+  httr::GET(config = httr::config(ssl_verifypeer = FALSE)) %>% 
+  read_html() %>% 
+  html_nodes("table") %>% 
+  .[[1]] %>% 
+  html_table() %>% 
+  as_tibble()
+
+race <- "https://en.wikipedia.org/wiki/Demographics_of_the_United_States"
+stateRace <-race %>% 
+  httr::GET(config = httr::config(ssl_verifypeer = FALSE)) %>% 
+  read_html() %>% 
+  html_nodes("table") %>% 
+  .[[33]] %>% 
+  html_table() %>% 
+  as_tibble()
+
+```
+b.
+```{r}
+statePop %>% 
+  mutate(state=if_else(State=="District of Columbia", "DC",(state.abb[match(State,state.name)]))) %>% 
+  inner_join(WashPost1, by="state") %>% 
+  mutate(pop2019=as.numeric(gsub(",", "", `Population estimate, July 1, 2019[2]`))) %>% 
+  group_by(state) %>% 
+  summarise(popMil= n()/(pop2019/1000000)) %>% 
+  distinct(state,popMil) %>% 
+  arrange(desc(popMil)) %>% 
+  head(10) %>% 
+  ggplot()+
+    geom_col(aes(reorder(state,desc(popMil)),popMil))+
+    labs(title = "Top 10 States With The Largest Number of Shootings Per Million People by State", x="State", y="Number Of Shootings(Per Million People)")
+
+```
+Taking into account population the graph is very different than the one in 3a. California had the largest amount of shootings in the first graph most likely due to high population. California is not included in the new graph. Arkansaw has the largest number of shootings per million of people by state and it was not even included in 3a. Only OK, AZ, and CO were included in both graphs.  
+c.
+```{r}
+stateRace %>% 
+  mutate(state=if_else(`State or territory`=="District of Columbia", "DC",(state.abb[match(`State or territory`,state.name)]))) %>% 
+  inner_join(WashPost1, by="state") %>%
+  mutate(propW=as.numeric(gsub("%", "", White))) %>% 
+  group_by(state) %>% 
+  drop_na(race) %>% 
+  summarise(wVic= sum(race=="W")/n(), propW) %>% 
+  distinct(state,wVic,propW) %>% 
+  ggplot(aes(wVic,propW))+
+    geom_point()+
+    geom_smooth()+
+    labs(title = "Proportion Of Victims Who Are White vs. Proportion of Population That Is White", x="Prop. White Victims", y="Prop. White Population")
+
+```
+There appears to be a moderate positive linear relationship between prop of white pop and prop of white victims. 
