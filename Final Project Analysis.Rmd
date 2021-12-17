@@ -1,0 +1,221 @@
+---
+title: "Final Project Analysis"
+author: "Julia Shmookler"
+date: "12/13/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(spotifyr)
+library(jsonlite)
+library(MASS)
+Sys.setenv(SPOTIFY_CLIENT_ID = 'c6ad671c151749848b8b51c402548220')
+Sys.setenv(SPOTIFY_CLIENT_SECRET = 'edbdb343428848ad976727db352dd636')
+
+access_token <- get_spotify_access_token()
+
+mydat<-readRDS("FinalData.RDS")
+
+mydatkc<-readRDS("FinalDataKC.RDS")
+
+mydatMA<-readRDS("FinalDataMA.RDS")
+
+mydatTM<-readRDS("FinalDataTM.RDS")
+
+mydatLV<-readRDS("FinalDataLV.RDS")
+
+mydatKG<-readRDS("FinalDataKG.RDS")
+
+```
+##Initial Distributions
+```{r}
+
+ggplot(mydat)+
+  geom_histogram(aes(danceability))
+
+mydat %>% 
+  dplyr::select(danceability:tempo) %>% 
+  pivot_longer(danceability:tempo, names_to = "varName", values_to = "value", names_repair = "minimal") %>% 
+  ggplot()+
+  geom_density(aes(value), color = "dark green")+
+  facet_wrap(.~varName, scales="free")
+
+```
+##Initial Cluster
+```{r}
+
+k2<-mydat %>% 
+  drop_na(danceability) %>% 
+  dplyr::select(danceability) %>% 
+  kmeans(centers = 2) 
+#k2$cluster
+names(k2)
+
+mydat %>% 
+  drop_na(danceability) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability) %>% dplyr::select(danceability), centers = 2)$cluster) %>% 
+  ggplot()+
+  geom_dotplot(aes(danceability, color=as.character(k2)))
+
+mydat %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability,energy) %>% dplyr::select(danceability,energy), centers = 2)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2)))
+
+mydat %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(mydat %>% drop_na(danceability,energy) %>% dplyr::select(danceability,energy), centers = 4)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2)))
+```
+
+
+##Cluster with Keara
+```{r}
+newDataKC<- bind_rows("Julia"=mydat,"Keara"=mydatkc, .id = "who") %>% 
+  drop_na(danceability)
+
+newDataKC %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(k2=kmeans(newDataKC %>% drop_na(danceability,energy) %>% dplyr::select(danceability,energy), centers = 4)$cluster) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=as.character(k2), shape=who))
+
+model1<- lda(who~danceability+energy, data=newDataKC)
+model1
+names(model1)
+#predict(model1)$posterior
+summary(model1)
+
+newDataKC %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(p2=predict(model1)$class) %>% 
+  ggplot()+
+  geom_point(aes(danceability, energy, color=p2))+
+  facet_grid(~who)
+
+modelall<- lda(who~., data=newDataKC %>% dplyr::select(danceability:tempo,who))
+modelall
+predict(modelall)$posterior %>% dim()
+
+newDataKC %>% count(danceability)
+
+newDataKC %>% 
+  mutate(whoPredict=predict(modelall)$class) %>% 
+  ggplot()+
+  geom_density(aes(danceability, color=whoPredict))+
+  facet_grid(~who)
+
+newDataKC %>% 
+  mutate(whoPredict=predict(modelall)$class) %>%
+  dplyr::select(who,whoPredict,danceability:tempo) %>% 
+  pivot_longer(danceability:tempo, names_to = "varName", values_to = "value", names_repair = "minimal") %>% 
+  ggplot()+
+  geom_density(aes(value, color=whoPredict))+
+  facet_grid(varName~who, scales="free")
+  
+?vctrs::vec_as_names
+
+```
+##Cluster with All
+```{r fig.height=9, fig.width=9}
+newDataAll <-  bind_rows("Julia"=mydat,"Keara"=mydatkc,"Maya"=mydatMA,"Tommy"=mydatTM,"Lily"=mydatLV,"Kyle"=mydatKG, .id = "who")%>% 
+  drop_na(danceability) %>%  
+  mutate(zDanceability=(danceability-mean(danceability))/sd(danceability),
+         zEnergy=(energy-mean(energy))/sd(energy),key=(key-mean(key))/sd(key),
+         zLoudness=(loudness-mean(loudness))/sd(loudness),zmode=(mode-mean(mode))/sd(mode),
+         zSpeechiness=(speechiness-mean(speechiness))/sd(speechiness),
+         zAcousticness=(acousticness-mean(acousticness))/sd(acousticness),
+         zInstrumentalness=(instrumentalness-mean(instrumentalness))/sd(instrumentalness),
+         zLiveness=(liveness-mean(liveness))/sd(liveness),zValence=(valence-mean(valence))/sd(valence),
+         ztempo=(tempo-mean(tempo))/sd(tempo))
+
+
+model2<- lda(who~., data=newDataAll %>% dplyr::select(zDanceability:ztempo,who))
+model2
+#predict(model2)$posterior
+
+# newDataAll %>%
+#   dplyr::select(who,danceability:tempo) %>% 
+#   pivot_longer(danceability:tempo, names_to = "varName", values_to = "value", names_repair = "minimal")
+  
+# data.frame(model2$means) %>%
+#   group_by(who) %>% 
+#   pivot_longer(danceability:tempo, names_to = "varName", values_to = "means", names_repair = "minimal")
+
+newDataAll %>% 
+  drop_na(danceability,energy) %>% 
+  mutate(p2=predict(model2)$class) %>% 
+  ggplot()+
+  geom_point(aes(danceability, speechiness, color=p2))+
+  facet_grid(~who)
+
+newDataAll %>% 
+  drop_na(danceability,speechiness) %>% 
+  mutate(p2=predict(model2)$class) %>% 
+  ggplot()+
+  geom_point(aes(danceability, speechiness, color=p2), alpha=0.1)+
+  facet_wrap(~who)+
+  theme(legend.position = "bottom")
+
+newDataAll %>% 
+  mutate(whoPredict=predict(model2)$class) %>% 
+  ggplot()+
+  geom_density(aes(speechiness, color=whoPredict))+
+  labs(title = "Speechiness")
+
+get_track("50lOvJmUACTRJDxU62o5f6")
+newDataAll %>% 
+  filter(id=="3OrI7MO3lL6F4dUYS5rCkz")
+
+newDataAll %>%
+  group_by(id,who)
+```
+##Boxplots
+```{r nfig.height=12, fig.width=12}
+newDataAll %>% 
+  dplyr::select(who,zDanceability:ztempo) %>% 
+  pivot_longer(zDanceability:ztempo, names_to = "varName", values_to = "value", names_repair = "minimal") %>% 
+  ggplot()+
+  geom_boxplot(aes(who,value, color=who))+
+  facet_wrap(~varName, scales = "free_y" )
+``` 
+##Model Testing
+
+```{r}
+
+DataAll<- data.frame(newDataAll, predicted=predict(model2)$class, predict(model2)$posterior)
+length(predict(model2)$class)
+
+dataProp<-DataAll %>% 
+  group_by(who) %>% 
+  summarise(n=n(),propJulia=sum(predicted=="Julia")/n, propKeara=sum(predicted=="Keara")/n, propKyle=sum(predicted=="Kyle")/n, propLily=sum(predicted=="Lily")/n, propMaya=sum(predicted=="Maya")/n, propTommy=sum(predicted=="Tommy")/n, prop=sum(predicted==who)/n)
+
+dataProp %>% 
+  pivot_longer(3:8, names_to = "PropPerson", values_to = "proportion") %>% 
+  ggplot()+
+  geom_col(aes(PropPerson, proportion, fill=PropPerson))+
+  facet_wrap(~who)+
+  theme(axis.text.x=element_text(angle=45, vjust = 0.6))+
+  scale_fill_discrete(labels= c("Julia","Keara", "Kyle", "Lily", "Maya", "Tommy"))+
+  labs(title= "Proportion Predicted vs Actual",fill="Person Predicted", x="Person", y="Proportion")
+
+dataProp %>% 
+  pivot_longer(3:8, names_to = "PropPerson", values_to = "proportion") %>% 
+  ggplot()+
+  geom_col(aes(who, proportion, fill=PropPerson))+
+  scale_fill_discrete(labels= c("Julia","Keara", "Kyle", "Lily", "Maya", "Tommy"))+
+  labs(title= "Proportion Predicted vs Actual",fill="Person Predicted", x="Person", y="Proportion")
+  
+dataProp %>% 
+  dplyr::select(who,prop)
+
+DataAll[12000,]
+
+
+
+```
+
